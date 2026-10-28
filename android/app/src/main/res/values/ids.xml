@@ -1,0 +1,7 @@
+<resources>
+    <!-- Accessibility actions on the arrangement view. -->
+    <item name="arrange_right" type="id" />
+    <item name="arrange_left" type="id" />
+    <item name="arrange_top" type="id" />
+    <item name="arrange_bottom" type="id" />
+</resources>

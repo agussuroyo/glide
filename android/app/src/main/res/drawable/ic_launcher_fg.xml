@@ -1,0 +1,14 @@
+<!-- A screen edge (left bar) with the cursor already halfway across it. Safe zone is the centre 66dp of 108. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.55"
+        android:pathData="M40,32 h4 v44 h-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,36 L48,70 L56,62.5 L61.5,74.5 L66.5,72.4 L61,60.4 L72,60.4 Z" />
+</vector>

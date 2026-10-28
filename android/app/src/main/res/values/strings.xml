@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Glide</string>
+    <string name="accessibility_description">Lets a Mac you have paired move a cursor, tap, scroll and type on this phone over your WiFi. Nothing is shared until you approve a pairing code shown on both screens.</string>
+</resources>
