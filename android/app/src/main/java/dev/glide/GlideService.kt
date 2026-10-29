@@ -33,6 +33,7 @@ class GlideService : AccessibilityService() {
         private const val TAG = "GlideCursor"
         private const val SCROLL_RELEASE_MS = 120L
         private const val WAKE_CHECK_MS = 350L
+        private const val AWAY_MS = 10 * 60_000L
 
         /** Set while the service runs, so the setup screen can drop a host it just forgot. */
         @Volatile var instance: GlideService? = null
@@ -115,6 +116,7 @@ class GlideService : AccessibilityService() {
         Glide.update { it.copy(phase = Glide.Phase.WAITING, host = null, arrangement = Store.lastArrangement) }
         Thread(::serve, "glide-server").start()
         GlideTile.update(this)
+        main.postDelayed(awayOff, AWAY_MS) // nobody connects: don't stay on
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
@@ -139,11 +141,44 @@ class GlideService : AccessibilityService() {
         Glide.stopObserving(transferCard.observer)
         transferCard.dismiss()
         cursor.remove()
+        main.removeCallbacks(awayOff)
         Glide.update { it.copy(phase = Glide.Phase.OFF, host = null, pairing = null) }
         GlideTile.update(this)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        event ?: return
+        Guard.protectedAppFor(event)?.let { app ->
+            Store.bankMaybeOpen = true // it may stay in Recent apps after this
+            return stepAside("$app was opening", "Glide turned off so $app can open safely")
+        }
+        // A Recents card tap carries no label, so Glide can't tell which app it is. While a banking app may
+        // still be in Recents, any unlabeled tap in the launcher turns Glide off first.
+        if (Store.bankMaybeOpen && Guard.isUnlabeledLauncherTap(event, homePackage)) {
+            stepAside("an app was opened from Recent apps", "Glide turned off: Livin' may still be in Recent apps")
+        }
+    }
+
+    private val homePackage: String? by lazy {
+        packageManager.resolveActivity(
+            android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME), 0,
+        )?.activityInfo?.packageName
+    }
+
+    /**
+     * Turns the Accessibility service off right now (the user turns it back on). Order matters: disable
+     * first, explain after, so a banking app starting up sees Glide already gone.
+     */
+    private fun stepAside(reason: String, toast: String) {
+        if (instance == null) return
+        Store.lastAutoOff = "${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}: $reason"
+        disableSelf()
+        android.widget.Toast.makeText(this, toast, android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    private val awayOff = Runnable {
+        if (session == null && Store.offWhenAway) stepAside("no Mac for 10 minutes", "Glide turned off: no Mac nearby")
+    }
     override fun onInterrupt() {}
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -288,6 +323,7 @@ class GlideService : AccessibilityService() {
             me = sess
             session?.close() // newest Mac wins
             session = sess
+            main.removeCallbacks(awayOff)
             Proto.write(out, ourHello)
             val mac = hello.width to hello.height
             val arrangement = Store.arrangement(fp) ?: defaultArrangement(mac)
@@ -305,6 +341,8 @@ class GlideService : AccessibilityService() {
             if (me != null && session === me) {
                 session = null
                 main.post {
+                    main.removeCallbacks(awayOff)
+                    main.postDelayed(awayOff, AWAY_MS)
                     deactivate()
                     Glide.update { it.copy(phase = Glide.Phase.WAITING, host = null, macSize = null) }
                 }

@@ -39,6 +39,8 @@ class MainActivity : Activity() {
     private lateinit var pairedList: LinearLayout
     private lateinit var scanButton: TextView
     private lateinit var scanNote: TextView
+    private lateinit var autoOffNote: TextView
+    private lateinit var livinClosed: TextView
     private val observer: (Glide.State) -> Unit = ::render
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -119,6 +121,24 @@ class MainActivity : Activity() {
         column.addView(scanButton.withTopMargin(12))
         scanNote = body("").apply { visibility = View.GONE }
         column.addView(scanNote)
+
+        column.addView(sectionTitle("Banking apps"))
+        column.addView(body("Livin' by Mandiri and similar apps block accounts while a service like Glide is on. " +
+            "Glide turns itself off the moment you tap Livin', before it opens."))
+        column.addView(toggle("Also turn off when no Mac is nearby for 10 minutes", Store.offWhenAway) {
+            Store.offWhenAway = it
+        })
+        column.addView(body("To turn Glide back on in one move: in Accessibility › Glide, turn on Glide shortcut " +
+            "and choose Hold volume keys. Then hold both volume keys for 3 seconds. The Glide tile in Quick Settings works too."))
+        column.addView(quietButton("Open Accessibility settings") { openAccessibilitySettings(this) },
+            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = -dpi(14) })
+        autoOffNote = body("")
+        column.addView(autoOffNote)
+        livinClosed = quietButton("Livin' is closed now") {
+            Store.bankMaybeOpen = false
+            render(Glide.state)
+        }
+        column.addView(livinClosed, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = -dpi(14) })
 
         column.addView(sectionTitle("Feel"))
         column.addView(slider("Pointer speed", Store.pointerSpeed) { Store.pointerSpeed = it })
@@ -210,6 +230,12 @@ class MainActivity : Activity() {
         arrangeHint.text = if (s.macSize != null) "Drag the phone to where it sits next to your Mac."
         else "Connect your Mac to arrange the two screens."
 
+        val off = Store.lastAutoOff
+        val recents = if (Store.bankMaybeOpen) " Until you close Livin' in Recent apps and tap below, opening any app from " +
+            "Recent apps turns Glide off too." else ""
+        autoOffNote.text = (if (off != null) "Last turned off by itself at $off." else "") + recents
+        autoOffNote.visibility = if (autoOffNote.text.isNotEmpty()) View.VISIBLE else View.GONE
+        livinClosed.visibility = if (Store.bankMaybeOpen) View.VISIBLE else View.GONE
         pairedList.removeAllViews()
         val paired = Store.paired()
         if (paired.isEmpty()) {
@@ -299,6 +325,24 @@ class MainActivity : Activity() {
                 marginStart = -dpi(16); marginEnd = -dpi(16) // SeekBar pads its thumb; align the track with text
             })
         }
+    }
+
+    private fun toggle(label: String, value: Boolean, onChange: (Boolean) -> Unit) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dpi(56)
+        setPadding(0, dpi(4), 0, 0)
+        val sw = android.widget.Switch(this@MainActivity).apply {
+            isChecked = value
+            thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(color(R.color.accent), color(R.color.surface)))
+            trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(color(R.color.accent), color(R.color.line)))
+            contentDescription = label
+            setOnCheckedChangeListener { _, on -> onChange(on) }
+        }
+        addView(text(16f, 500, R.color.ink, label), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        addView(sw)
+        setOnClickListener { sw.toggle() }
     }
 
     private fun shortcut(keys: String, action: String) = LinearLayout(this).apply {

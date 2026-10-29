@@ -97,6 +97,21 @@ object Store {
         get() = prefs.getBoolean("accessibilityConsent", false)
         set(v) = prefs.edit().putBoolean("accessibilityConsent", v).apply()
 
+    /** Turn Glide off when no Mac has been connected for a while (default on: safer for banking apps). */
+    var offWhenAway: Boolean
+        get() = prefs.getBoolean("offWhenAway", true)
+        set(v) = prefs.edit().putBoolean("offWhenAway", v).apply()
+
+    /** Set when Glide stepped aside for a banking app, which may still be in Recent apps; the user clears it. */
+    var bankMaybeOpen: Boolean
+        get() = prefs.getBoolean("bankMaybeOpen", false)
+        set(v) = prefs.edit().putBoolean("bankMaybeOpen", v).apply()
+
+    /** Why and when Glide last turned itself off, shown on the setup screen. */
+    var lastAutoOff: String?
+        get() = prefs.getString("lastAutoOff", null)
+        set(v) = prefs.edit().putString("lastAutoOff", v).apply()
+
     var scrollSpeed: Float
         get() = prefs.getFloat("scrollSpeed", 1f)
         set(v) = prefs.edit().putFloat("scrollSpeed", v).apply()

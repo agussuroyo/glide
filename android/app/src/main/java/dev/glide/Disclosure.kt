@@ -29,8 +29,9 @@ object Disclosure {
             "record what is on your screen.",
         "Nothing is sent to us or to any server. Your Mac sends the cursor and keys; text you copy with Cmd C " +
             "and files you share go only to your paired Mac, encrypted, over your WiFi.",
-        "Banking apps may refuse to open while Glide is on. Turn it off first from the Glide tile in Quick " +
-            "Settings, and back on afterwards.",
+        "Banking apps such as Livin' by Mandiri block accounts while services like this are on. To protect " +
+            "you, Glide notices when you tap or open such an app and turns itself off first. It only looks at " +
+            "the app's name for this and keeps no record of the apps you use.",
     )
 
     fun show(ctx: Context, done: (Boolean) -> Unit) {

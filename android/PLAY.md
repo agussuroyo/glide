@@ -23,7 +23,7 @@ Bump `versionCode` (and `versionName`) in `app/build.gradle.kts` for every new u
 3. **Testers**: create an email list with your own Google account, save, copy the opt-in link, open it on the phone, then install from Play.
 4. **App content** (required before the release can go out):
    - Privacy policy URL: `https://github.com/agussuroyo/glide/blob/master/PRIVACY.md`
-   - **Accessibility API declaration**: core feature is remote control of the phone from the user's own paired Mac (cursor, taps, scrolling, typing). Not an accessibility tool. Mention the in-app disclosure ("Before you turn on Glide") and that the service never reads window content (`canRetrieveWindowContent=false`). A short screen recording of the disclosure → enabling the service → controlling the phone from the Mac is usually requested.
+   - **Accessibility API declaration**: core feature is remote control of the phone from the user's own paired Mac (cursor, taps, scrolling, typing). Not an accessibility tool. Mention the in-app disclosure ("Before you turn on Glide"), that the service never reads window content (`canRetrieveWindowContent=false`), and that it uses click/window event package names only to turn itself off before banking apps open. A short screen recording of the disclosure → enabling the service → controlling the phone from the Mac is usually requested.
    - Data safety: no data is collected by the developer and nothing goes to any server; data moves only between the user's own devices, encrypted in transit. Answer the form from PRIVACY.md.
    - Content rating questionnaire, target audience (18+ is simplest), ads: none.
    - App access: explain that a Mac running Glide.app is needed, and that pairing uses the in-app QR scanner.

@@ -7,7 +7,8 @@ Glide lets a Mac you own control your Android phone over your local WiFi, and mo
 ## What Glide does not do
 
 - Glide has no servers, accounts, analytics, ads or tracking. The developer never receives any of your data.
-- The Android app does not read, record or upload what is on your screen. Its Accessibility service is used only to perform input (cursor, taps, swipes, scrolling, typing, Back/Home/Recents) that comes from your paired Mac.
+- The Android app does not read, record or upload what is on your screen. Its Accessibility service is used to perform input (cursor, taps, swipes, scrolling, typing, Back/Home/Recents) that comes from your paired Mac.
+- To protect your bank account, the service also notices the name of the app you tap or open, only to turn itself off before banking apps such as Livin' by Mandiri start (they block accounts while such services are on). This is checked on the phone as it happens; nothing about the apps you use is stored or sent anywhere. The only thing kept is the time and reason of the last automatic turn-off, shown in the app.
 
 ## Data that moves between your own devices
 
