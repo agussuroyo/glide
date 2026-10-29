@@ -10,11 +10,11 @@ If the switch is greyed out: App info → ⋮ → **Allow restricted settings**,
 **Mac** (macOS 13 or newer): open `Glide.dmg`, drag Glide into Applications and open it. It lives in the menu bar.
 Glide is not notarized, so the first time macOS blocks it: System Settings → Privacy & Security → **Open Anyway**.
 Then turn Glide on in **Accessibility** and **Input Monitoring** when asked; it starts working as soon as you do, no restart.
-The first time a phone connects, a dialog shows a 6-digit code; tap Pair only if the phone shows the same code, then Pair on the phone.
+**Pair a phone** (once): click Glide in the menu bar → **Pair New Phone…**, then tap **Scan pairing code** in the phone app and scan the QR. No codes to compare. Phones without Google Play services can pair by comparing a 6-digit code shown on both screens instead.
 
 Drag the phone in the Glide app to where it sits next to your Mac, like arranging displays in System Settings. The cursor crosses only where the two screens touch, at the same height it left.
 
-The menu bar shows who you're connected to and has **Open at Login**. Prefer a terminal? `glide` (or `glide pixel`, `glide 192.168.1.20`) runs the same thing there.
+The menu bar shows who you're connected to and has **Open at Login**. Prefer a terminal? `glide` (or `glide pixel`, `glide 192.168.1.20`) runs the same thing there; `glide pair` prints the pairing QR in the terminal.
 
 ## Use
 
@@ -33,7 +33,7 @@ Transfers stream on their own connection with a fixed buffer, so multi-GB files 
 
 ## Security
 
-Every connection is TLS 1.3. Devices trust each other only after you compare the pairing code on both screens; after that the phone's and Mac's keys are pinned. Anything else on the network is refused. Paired Macs can be forgotten in the app.
+Every connection is TLS 1.3. Devices trust each other only after pairing: the QR carries the Mac's key fingerprint and a one-time secret (valid 10 minutes), and the phone proves it scanned it; or both screens show the same 6-digit code. After that the phone's and Mac's keys are pinned. The Mac only approaches an unknown phone while a pairing window is open. Anything else on the network is refused. Paired Macs can be forgotten in the app.
 
 ## Limits
 

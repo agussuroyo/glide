@@ -105,6 +105,22 @@ object Store {
     fun setArrangement(fp: String, a: Glide.Arrangement) =
         prefs.edit().putString("arrangement:$fp", "${a.macEdge},${a.offset}").apply()
 
+    /** A Mac whose pairing QR was scanned, until it connects (or the code expires). */
+    data class Scanned(val fingerprint: String, val secret: ByteArray, val name: String, val until: Long)
+
+    var scanned: Scanned?
+        get() {
+            val v = prefs.getString("scanned", null)?.split('|', limit = 4) ?: return null
+            val s = Scanned(v[0], v[1].chunked(2).map { it.toInt(16).toByte() }.toByteArray(), v[3], v[2].toLong())
+            return s.takeIf { System.currentTimeMillis() < it.until }
+        }
+        set(s) {
+            val e = prefs.edit()
+            if (s == null) e.remove("scanned")
+            else e.putString("scanned", "${s.fingerprint}|${s.secret.joinToString("") { "%02x".format(it) }}|${s.until}|${s.name}")
+            e.apply()
+        }
+
     /** Last arrangement used, to draw the desk before a Mac connects. */
     var lastArrangement: Glide.Arrangement?
         get() = arrangement("last")

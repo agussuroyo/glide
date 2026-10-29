@@ -204,11 +204,10 @@ class PairPrompt(private val ctx: Context, private val wm: WindowManager) {
         val frame = FrameLayout(ctx).apply {
             val m = ctx.dpi(12)
             addView(card, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { setMargins(m, m, m, m) })
-            // Overlay windows still sit under the gesture bar; keep the buttons clear of it.
-            setOnApplyWindowInsetsListener { v, insets ->
-                v.setPadding(0, 0, 0, insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom)
-                insets
-            }
+            // Accessibility overlays get no insets dispatched; read the gesture bar height from the display.
+            val nav = wm.currentWindowMetrics.windowInsets
+                .getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.mandatorySystemGestures())
+            setPadding(0, 0, 0, nav.bottom)
         }
         val params = WindowManager.LayoutParams(
             MATCH_PARENT, WRAP_CONTENT, TYPE_ACCESSIBILITY_OVERLAY,

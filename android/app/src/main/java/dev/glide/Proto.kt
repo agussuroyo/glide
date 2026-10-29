@@ -9,7 +9,7 @@ import java.io.OutputStream
 
 // Wire format: [u16 len][u8 type][payload], big-endian. Must stay in sync with desktop/src/proto.rs.
 object Proto {
-    const val VERSION = 2
+    const val VERSION = 3
     const val PORT = 24242
     const val SERVICE_TYPE = "_glide._tcp"
     const val PING_MS = 1000L
@@ -34,6 +34,10 @@ object Proto {
     data object PasteFiles : Msg
     data class DragFiles(val count: Int, val total: Long) : Msg
     data class Offer(val id: Int, val count: Int, val total: Long) : Msg
+    data object PairStart : Msg
+    /** HMAC-SHA256(secret from the Mac's QR, host cert ‖ phone cert). */
+    class PairProof(val mac: ByteArray) : Msg
+    data object PairAsk : Msg
     /** The phone sits on [edge] of the Mac's screen, [offset] points along it, covering [length] points. */
     data class Layout(val edge: Int, val offset: Int, val length: Int) : Msg
     // Transfer connection only; raw file bytes follow each FileHeader.
@@ -64,6 +68,9 @@ object Proto {
             11 -> PasteFiles
             12 -> DragFiles(p.readUnsignedShort(), p.readLong())
             13 -> Offer(p.readInt(), p.readUnsignedShort(), p.readLong())
+            15 -> PairStart
+            16 -> PairProof(p.readBytes())
+            17 -> PairAsk
             14 -> Layout(p.readUnsignedByte(), p.readInt(), p.readUnsignedShort())
             20 -> Push(p.readUnsignedShort(), p.readLong())
             21 -> Pull(p.readInt())
@@ -89,6 +96,8 @@ object Proto {
                 is Clipboard -> { writeByte(9); write(msg.text.toByteArray()) }
                 is PasteFiles -> writeByte(11)
                 is Offer -> { writeByte(13); writeInt(msg.id); writeShort(msg.count); writeLong(msg.total) }
+                is PairProof -> { writeByte(16); write(msg.mac) }
+                is PairAsk -> writeByte(17)
                 is Layout -> { writeByte(14); writeByte(msg.edge); writeInt(msg.offset); writeShort(msg.length) }
                 is Push -> { writeByte(20); writeShort(msg.count); writeLong(msg.total) }
                 is FileHeader -> { writeByte(22); writeLong(msg.size); write(msg.name.toByteArray()) }

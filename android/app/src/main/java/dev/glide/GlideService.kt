@@ -244,7 +244,9 @@ class GlideService : AccessibilityService() {
             val fp = Pairing.fingerprint(hostCert)
             val input = DataInputStream(BufferedInputStream(s.inputStream))
             val out = BufferedOutputStream(s.outputStream)
-            val first = Proto.read(input)
+            var first = Proto.read(input)
+            val macDoesNotKnowUs = first is Proto.PairStart
+            if (macDoesNotKnowUs) first = Proto.read(input)
             if (first !is Proto.Hello) {
                 // A transfer connection: only from a Mac that is already paired, never a pairing prompt.
                 val peer = Store.paired()[fp] ?: return
@@ -263,7 +265,21 @@ class GlideService : AccessibilityService() {
                 Proto.write(out, ourHello) // lets the Mac print a clear version message
                 return
             }
-            if (fp !in Store.paired() && !askToPair(hello.name, Pairing.sas(hostCert, Pairing.certificate.encoded))) return
+            val scanned = Store.scanned?.takeIf { it.fingerprint == fp }
+            when {
+                // We scanned this Mac's QR: prove it, no questions asked on either side.
+                scanned != null -> {
+                    Proto.write(out, Proto.PairProof(Pairing.proof(scanned.secret, hostCert, Pairing.certificate.encoded)))
+                    Store.scanned = null
+                    main.post(::refreshDiscovery)
+                }
+                fp in Store.paired() && !macDoesNotKnowUs -> {}
+                // Unknown Mac, or one that forgot us: compare codes on both screens.
+                else -> {
+                    Proto.write(out, Proto.PairAsk)
+                    if (!askToPair(hello.name, Pairing.sas(hostCert, Pairing.certificate.encoded), s, input)) return
+                }
+            }
             Store.pair(fp, hello.name) // also refreshes the name if the Mac was renamed
 
             val sess = Session(s, fp, out)
@@ -294,17 +310,38 @@ class GlideService : AccessibilityService() {
         }
     }
 
-    /** Blocks this session thread until the user answers the on-screen card (or it times out). */
-    private fun askToPair(host: String, code: String): Boolean {
+    /**
+     * Blocks this session thread until the user answers the on-screen card, it times out, or the Mac goes
+     * away (then the card disappears instead of waiting out its timeout). The Mac sends nothing while it
+     * waits for its own user, so a read here only ever sees end-of-stream.
+     */
+    private fun askToPair(host: String, code: String, s: SSLSocket, input: DataInputStream): Boolean {
         val done = CountDownLatch(1)
         var ok = false
         val req = Glide.PairRequest(host, code) { answer -> ok = answer; done.countDown() }
         Glide.update { it.copy(pairing = req) }
         main.post { prompt.show(req) }
-        done.await(PairPrompt.PAIR_TIMEOUT_MS + 1000, TimeUnit.MILLISECONDS)
+        val previous = s.soTimeout
+        s.soTimeout = 500
+        val deadline = System.currentTimeMillis() + PairPrompt.PAIR_TIMEOUT_MS + 1000
+        try {
+            while (!done.await(0, TimeUnit.MILLISECONDS) && System.currentTimeMillis() < deadline) {
+                input.mark(1)
+                try {
+                    if (input.read() < 0) break // Mac closed the connection
+                    input.reset()
+                } catch (_: java.net.SocketTimeoutException) {
+                    // still connected; keep waiting
+                }
+            }
+        } catch (_: java.io.IOException) {
+            // connection broke: treat as not paired
+        } finally {
+            s.soTimeout = previous
+        }
         main.post { prompt.dismiss() }
         Glide.update { if (it.pairing === req) it.copy(pairing = null) else it }
-        return ok
+        return ok && done.count == 0L
     }
 
     private fun enqueue(m: Proto.Msg) {
@@ -482,6 +519,8 @@ class GlideService : AccessibilityService() {
             serviceType = Proto.SERVICE_TYPE
             port = Proto.PORT
             setAttribute("id", Pairing.fingerprint.take(16))
+            // Lets the Mac whose QR we scanned pick this phone out of others on the WiFi.
+            Store.scanned?.let { setAttribute("pair", it.fingerprint.take(16)) }
         }
         val l = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(info: NsdServiceInfo) { Log.i(TAG, "discoverable as ${info.serviceName}") }
@@ -491,6 +530,13 @@ class GlideService : AccessibilityService() {
         }
         nsd = getSystemService(NsdManager::class.java).also { it.registerService(info, NsdManager.PROTOCOL_DNS_SD, l) }
         nsdListener = l
+    }
+
+    /** Re-announce on the network after a QR scan (or once it is used), so the Mac sees the `pair` hint. */
+    fun refreshDiscovery() {
+        if (instance == null) return
+        unregisterNsd()
+        main.postDelayed(::registerNsd, 500)
     }
 
     private fun unregisterNsd() {

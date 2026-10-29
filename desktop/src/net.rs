@@ -1,6 +1,6 @@
 //! Host networking: identity, pairing, discovery, and one TLS session to the target.
 
-use crate::{clip, files, mac};
+use crate::{clip, files, mac, pairing};
 use crate::proto::{Msg, MAX_CLIPBOARD, PING_EVERY, PORT, TIMEOUT, VERSION};
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -84,7 +84,8 @@ fn remember(fp: &str, name: &str) -> io::Result<()> {
 
 /// Resolves `want` (an IP, ip:port, a device name, or nothing) to a target address.
 /// Without an IP, browses mDNS; with nothing given, prefers a paired device, else the only one found.
-pub fn find_target(want: Option<&str>) -> io::Result<SocketAddr> {
+/// A phone that just scanned our QR advertises `pair=<our fingerprint prefix>` and is picked first.
+pub fn find_target(want: Option<&str>, own_fp: &str) -> io::Result<SocketAddr> {
     if let Some(w) = want {
         if let Ok(ip) = w.parse::<IpAddr>() {
             return Ok(SocketAddr::new(ip, PORT));
@@ -106,8 +107,9 @@ pub fn find_target(want: Option<&str>) -> io::Result<SocketAddr> {
         let Some(ip) = s.addresses.iter().map(|a| a.to_ip_addr()).find(|a| a.is_ipv4()) else { continue };
         let addr = SocketAddr::new(ip, s.port);
         let is_paired = !id.is_empty() && paired.iter().any(|f| f.starts_with(&id));
+        let scanned_us = s.txt_properties.get_property_val_str("pair").is_some_and(|p| !p.is_empty() && own_fp.starts_with(p));
         let matches = want.is_some_and(|w| name.to_lowercase().contains(&w.to_lowercase()));
-        if matches || (want.is_none() && is_paired) {
+        if matches || (want.is_none() && (is_paired || (scanned_us && pairing::active()))) {
             let _ = mdns.shutdown();
             return Ok(addr);
         }
@@ -117,7 +119,11 @@ pub fn find_target(want: Option<&str>) -> io::Result<SocketAddr> {
     }
     let _ = mdns.shutdown();
     match (want, found.as_slice()) {
-        (None, [(_, addr)]) => Ok(*addr),
+        // A phone we have never met is only approached while the user is pairing.
+        (None, [(_, addr)]) if pairing::active() => Ok(*addr),
+        (None, _) if !pairing::active() => Err(io::Error::other(
+            "no paired phone found. To add one: Glide menu > Pair New Phone (or run glide pair)",
+        )),
         (_, []) => Err(io::Error::other("no phone found. Open Glide on the phone and check it is on the same WiFi")),
         (_, many) => {
             let names: Vec<&str> = many.iter().map(|(n, _)| n.as_str()).collect();
@@ -205,25 +211,43 @@ pub fn session(host: &mac::Shared, id: &Arc<Identity>, addr: SocketAddr) -> io::
     let fp = fingerprint(&target_cert);
     let paired = known().iter().any(|(f, _)| f == &fp);
     if !paired {
-        println!("\nNew phone at {addr}.");
-        if !crate::app::confirm_pairing(&sas(&id.cert, &target_cert)) {
-            return Err(io::Error::other("pairing declined"));
-        }
-        println!("Now tap Pair on the phone.");
+        Msg::PairStart.write_to(&mut tls)?;
     }
-
     let screen = mac::screen_size();
     Msg::Hello { version: VERSION, width: screen.0, height: screen.1, name: computer_name() }.write_to(&mut tls)?;
     tls.flush()?;
-    let name = match Msg::read_from(&mut tls)? {
-        Msg::Hello { version, name, .. } if version == VERSION => name,
-        Msg::Hello { version, .. } => {
-            return Err(io::Error::other(format!("phone speaks protocol v{version}, this Mac speaks v{VERSION}. Update both")));
+
+    // Until the phone's Hello: it either proves it scanned our QR, or asks to compare codes.
+    let mut trusted = paired;
+    let name = loop {
+        match Msg::read_from(&mut tls)? {
+            Msg::PairProof(p) => {
+                if !pairing::verify(&p, &id.cert, &target_cert) {
+                    return Err(io::Error::other("the phone's pairing QR is old or from another Mac. Show a new one"));
+                }
+                trusted = true;
+            }
+            Msg::PairAsk => {
+                println!("\nNew phone at {addr}.");
+                if !crate::app::confirm_pairing(&sas(&id.cert, &target_cert)) {
+                    return Err(io::Error::other("pairing declined"));
+                }
+                trusted = true;
+            }
+            Msg::Hello { version, name, .. } if version == VERSION => break name,
+            Msg::Hello { version, .. } => {
+                return Err(io::Error::other(format!("phone speaks protocol v{version}, this Mac speaks v{VERSION}. Update both")));
+            }
+            _ => return Err(io::Error::other("expected Hello")),
         }
-        _ => return Err(io::Error::other("expected Hello")),
     };
+    if !trusted {
+        return Err(io::Error::other("the phone did not pair"));
+    }
     if !paired {
         remember(&fp, &name)?;
+        crate::app::paired(&name);
+        notify(&format!("Paired with {name}"));
     }
     // The phone says where it sits (its arrangement screen); it always follows Hello.
     match Msg::read_from(&mut tls)? {
@@ -347,7 +371,7 @@ pub fn notify(text: &str) {
         .output();
 }
 
-fn computer_name() -> String {
+pub fn computer_name() -> String {
     std::process::Command::new("scutil")
         .args(["--get", "ComputerName"])
         .output()

@@ -58,6 +58,27 @@ object Pairing {
         return "%03d %03d".format(n / 1000, n % 1000)
     }
 
+    /** Must match desktop/src/pairing.rs: HMAC-SHA256(secret, host cert ‖ phone cert). */
+    fun proof(secret: ByteArray, hostDer: ByteArray, phoneDer: ByteArray): ByteArray =
+        javax.crypto.Mac.getInstance("HmacSHA256").run {
+            init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
+            update(hostDer)
+            update(phoneDer)
+            doFinal()
+        }
+
+    /**
+     * Reads a Mac's pairing QR: `glide1:<fingerprint>:<secret hex>:<name>`. Valid for 10 minutes, as on the Mac.
+     * Returns null for anything else, so a random QR code is simply ignored.
+     */
+    fun parseQr(text: String): Store.Scanned? {
+        val p = text.split(':', limit = 4)
+        if (p.size != 4 || p[0] != "glide1") return null
+        if (!p[1].matches(Regex("[0-9a-f]{64}")) || !p[2].matches(Regex("[0-9a-f]{32}"))) return null
+        val secret = p[2].chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        return Store.Scanned(p[1], secret, p[3].ifBlank { "Mac" }, System.currentTimeMillis() + 10 * 60_000)
+    }
+
     fun serverSocketFactory(): SSLServerSocketFactory {
         val cert = certificate // creates the key on first use
         val key = keyStore.getKey(ALIAS, null) as PrivateKey

@@ -14,3 +14,8 @@ android {
         versionName = "0.1"
     }
 }
+
+dependencies {
+    // QR scanning UI from Google Play services: no camera permission, no camera code in the app.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+}

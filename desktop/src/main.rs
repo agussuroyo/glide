@@ -3,6 +3,7 @@ mod clip;
 mod files;
 mod mac;
 mod net;
+mod pairing;
 mod proto;
 
 use proto::Edge;
@@ -10,6 +11,7 @@ use std::thread;
 use std::time::Duration;
 
 const USAGE: &str = "usage: glide [phone]
+       glide pair [phone]   show a QR code to scan with the Glide app on a new phone
 
 Moves this Mac's mouse and keyboard to your phone when the cursor crosses the screen edge.
 Where the phone sits (which side, how high) is set by dragging it in the Glide app on the phone.
@@ -18,9 +20,11 @@ Press Left Ctrl + Left Option + Left Cmd to force control back.";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let want = match args.as_slice() {
-        [] => None,
-        [w] if !w.starts_with('-') => Some(w.clone()),
+    let (want, show_qr) = match args.as_slice() {
+        [] => (None, false),
+        [p] if p == "pair" => (None, true),
+        [p, w] if p == "pair" => (Some(w.clone()), true),
+        [w] if !w.starts_with('-') => (Some(w.clone()), false),
         _ => exit_usage(),
     };
     let id = std::sync::Arc::new(net::identity().unwrap_or_else(|e| {
@@ -28,13 +32,20 @@ fn main() {
         std::process::exit(1);
     }));
 
+    let own_fp = net::fingerprint(&id.cert);
+    if show_qr {
+        print!("{}", pairing::terminal(&pairing::new_payload(&own_fp, &net::computer_name())));
+        println!("Scan this with the Glide app on your phone (valid for 10 minutes).");
+    }
+    app::init(id.clone());
+
     let host = mac::Host::new(Edge::Right); // until the phone sends its arrangement
     let net_host = host.clone();
     thread::spawn(move || {
         let mut last_err = String::new();
         loop {
             app::set_status("Looking for your phone on this WiFi…");
-            let result = net::find_target(want.as_deref()).and_then(|addr| net::session(&net_host, &id, addr));
+            let result = net::find_target(want.as_deref(), &own_fp).and_then(|addr| net::session(&net_host, &id, addr));
             if let Err(e) = result {
                 app::set_status(e.to_string());
                 // Retrying every 2s; only print when the reason changes.

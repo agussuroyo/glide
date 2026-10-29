@@ -3,7 +3,7 @@
 
 use std::io::{self, Read, Write};
 
-pub const VERSION: u8 = 2;
+pub const VERSION: u8 = 3;
 pub const PORT: u16 = 24242;
 pub const MAX_CLIPBOARD: usize = 60_000;
 pub const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
@@ -65,6 +65,12 @@ pub enum Msg {
     DragFiles { count: u16, total: u64 },
     /// Phone → host: user shared files to the Mac. Host pulls them with `Pull { id }`.
     Offer { id: u32, count: u16, total: u64 },
+    /// Host → phone, before Hello, when the host does not know this phone yet.
+    PairStart,
+    /// Phone → host: it scanned this Mac's pairing QR. HMAC-SHA256(secret, host cert ‖ phone cert).
+    PairProof([u8; 32]),
+    /// Phone → host: no QR scanned; compare the 6-digit code on both screens instead.
+    PairAsk,
     /// Phone → host, right after Hello and whenever the user rearranges: the phone sits on `edge` of the
     /// Mac's screen, starting `offset` points along that edge and covering `length` points of it.
     Layout { edge: Edge, offset: i32, length: u16 },
@@ -151,6 +157,12 @@ impl Msg {
                 b.extend(offset.to_be_bytes());
                 b.extend(length.to_be_bytes());
             }
+            Msg::PairStart => b.push(15),
+            Msg::PairProof(mac) => {
+                b.push(16);
+                b.extend(mac);
+            }
+            Msg::PairAsk => b.push(17),
             Msg::Push { count, total } => {
                 b.push(20);
                 b.extend(count.to_be_bytes());
@@ -211,6 +223,9 @@ impl Msg {
             12 => Msg::DragFiles { count: u16_at(0)?, total: u64_at(2)? },
             13 => Msg::Offer { id: u32_at(0)?, count: u16_at(4)?, total: u64_at(6)? },
             14 => Msg::Layout { edge: Edge::from_u8(u8_at(0)?)?, offset: u32_at(1)? as i32, length: u16_at(5)? },
+            15 => Msg::PairStart,
+            16 => Msg::PairProof(p.get(..32).and_then(|s| s.try_into().ok()).ok_or_else(|| bad("frame"))?),
+            17 => Msg::PairAsk,
             20 => Msg::Push { count: u16_at(0)?, total: u64_at(2)? },
             21 => Msg::Pull { id: u32_at(0)? },
             22 => Msg::FileHeader {
@@ -244,6 +259,9 @@ mod tests {
             Msg::DragFiles { count: 1, total: 42 },
             Msg::Offer { id: 7, count: 2, total: u64::MAX },
             Msg::Layout { edge: Edge::Right, offset: -120, length: 915 },
+            Msg::PairStart,
+            Msg::PairProof([7; 32]),
+            Msg::PairAsk,
             Msg::Push { count: 2, total: 9 },
             Msg::Pull { id: 0xDEADBEEF },
             Msg::FileHeader { size: 4_294_967_296, name: "Trip/clip 1.mov".into() },

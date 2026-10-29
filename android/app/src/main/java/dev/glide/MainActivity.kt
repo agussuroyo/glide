@@ -38,6 +38,8 @@ class MainActivity : Activity() {
     private lateinit var fallback: TextView
     private lateinit var arrangeHint: TextView
     private lateinit var pairedList: LinearLayout
+    private lateinit var scanButton: TextView
+    private lateinit var scanNote: TextView
     private val observer: (Glide.State) -> Unit = ::render
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,7 +82,7 @@ class MainActivity : Activity() {
         column.addView(setup, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(28) })
 
         column.addView(sectionTitle("On your Mac"))
-        column.addView(body("Run this in Terminal while the phone is on the same WiFi."))
+        column.addView(body("Install Glide.app on the Mac; it runs in the menu bar. Prefer Terminal? Run this, with the phone on the same WiFi:"))
         command = text(16f, 400, R.color.ink).apply {
             typeface = Typeface.MONOSPACE
             fontVariationSettings = null
@@ -113,6 +115,11 @@ class MainActivity : Activity() {
         column.addView(sectionTitle("Paired Macs"))
         pairedList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         column.addView(pairedList)
+        column.addView(body("To add a Mac: click Glide in its menu bar, choose Pair New Phone, then scan the code."))
+        scanButton = primaryButton("Scan pairing code") { scan() }
+        column.addView(scanButton.withTopMargin(12))
+        scanNote = body("").apply { visibility = View.GONE }
+        column.addView(scanNote)
 
         column.addView(sectionTitle("Feel"))
         column.addView(slider("Pointer speed", Store.pointerSpeed) { Store.pointerSpeed = it })
@@ -167,9 +174,25 @@ class MainActivity : Activity() {
                 detail.text = "Turn it on below so your Mac can reach this phone."
             }
             Glide.Phase.WAITING -> {
-                headline.text = if (s.pairing != null) "Check the code" else "Waiting for your Mac"
-                detail.text = if (s.pairing != null) "${s.pairing.host} wants to pair. Compare the code on both screens."
-                else "Run the command below on your Mac."
+                val scanned = Store.scanned
+                when {
+                    s.pairing != null -> {
+                        headline.text = "Check the code"
+                        detail.text = "${s.pairing.host} wants to pair. Compare the code on both screens."
+                    }
+                    scanned != null -> {
+                        headline.text = "Waiting for ${scanned.name}"
+                        detail.text = "Keep Glide open on the Mac and both on the same WiFi. It connects in a few seconds."
+                    }
+                    Store.paired().isEmpty() -> {
+                        headline.text = "Pair your Mac"
+                        detail.text = "On the Mac, click Glide in the menu bar and choose Pair New Phone. Then tap Scan pairing code below."
+                    }
+                    else -> {
+                        headline.text = "Waiting for your Mac"
+                        detail.text = "Open Glide on your Mac, on the same WiFi."
+                    }
+                }
             }
             Glide.Phase.CONNECTED -> {
                 headline.text = "Connected to ${s.host}"
@@ -191,7 +214,7 @@ class MainActivity : Activity() {
         pairedList.removeAllViews()
         val paired = Store.paired()
         if (paired.isEmpty()) {
-            pairedList.addView(body("None yet. The first time a Mac connects, both screens show a code to compare."))
+            pairedList.addView(body("None yet."))
         }
         paired.entries.sortedBy { it.value.lowercase() }.forEach { (fp, name) ->
             pairedList.addView(LinearLayout(this).apply {
@@ -289,6 +312,65 @@ class MainActivity : Activity() {
     private fun View.withTopMargin(dp: Int) = apply {
         layoutParams = (layoutParams as? LinearLayout.LayoutParams ?: LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             .apply { topMargin = dpi(dp) }
+    }
+
+    // ---- QR pairing ----
+
+    private fun scan() {
+        val options = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE)
+            .build()
+        val scanner = com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(this, options)
+        // The scanner is a small Play services module downloaded on first use; fetch it, then scan.
+        val modules = com.google.android.gms.common.moduleinstall.ModuleInstall.getClient(this)
+        val request = com.google.android.gms.common.moduleinstall.ModuleInstallRequest.newBuilder()
+            .addApi(scanner)
+            .build()
+        showScanNote("Getting the scanner ready…")
+        modules.installModules(request)
+            .addOnSuccessListener { result ->
+                if (result.areModulesAlreadyInstalled()) startScan(scanner) else waitForScanner(scanner)
+            }
+            .addOnFailureListener { scannerUnavailable() }
+    }
+
+    /** Polls until the freshly downloaded scanner module is usable (typically a few seconds). */
+    private fun waitForScanner(scanner: com.google.mlkit.vision.codescanner.GmsBarcodeScanner, tries: Int = 0) {
+        com.google.android.gms.common.moduleinstall.ModuleInstall.getClient(this).areModulesAvailable(scanner)
+            .addOnSuccessListener { r ->
+                when {
+                    r.areModulesAvailable() -> startScan(scanner)
+                    tries < 60 -> scanNote.postDelayed({ waitForScanner(scanner, tries + 1) }, 1000)
+                    else -> scannerUnavailable()
+                }
+            }
+            .addOnFailureListener { scannerUnavailable() }
+    }
+
+    private fun startScan(scanner: com.google.mlkit.vision.codescanner.GmsBarcodeScanner) {
+        showScanNote("")
+        scanner.startScan()
+            .addOnSuccessListener { code ->
+                val scanned = Pairing.parseQr(code.rawValue.orEmpty())
+                if (scanned == null) {
+                    showScanNote("That isn't a Glide pairing code. On the Mac, choose Pair New Phone in the Glide menu.")
+                } else {
+                    Store.scanned = scanned
+                    GlideService.instance?.refreshDiscovery()
+                    render(Glide.state)
+                }
+            }
+            .addOnFailureListener { scannerUnavailable() }
+    }
+
+    private fun scannerUnavailable() = showScanNote(
+        "The scanner couldn't start (it needs Google Play services and internet the first time). " +
+            "Pair by code instead: open Glide on the Mac, choose Pair New Phone, and compare the 6-digit code on both screens.",
+    )
+
+    private fun showScanNote(text: String) {
+        scanNote.text = text
+        scanNote.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
     }
 
     // ---- helpers ----
