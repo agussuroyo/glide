@@ -28,11 +28,12 @@ GLIDE_E2E_ADDR=127.0.0.1:24242 GLIDE_E2E_FILES=/path/a,/path/dir \
 Android (run in `android/`):
 
 ```
-./gradlew assembleDebug               # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug               # app/build/outputs/apk/debug/app-debug.apk (app ID gets .debug suffix)
+./serve-apk.sh                        # build debug APK and serve it at http://<lan ip>:8000/app-debug.apk
 ./gradlew bundleRelease               # signed AAB for Play (key in ~/.config/glide/release.properties); see android/PLAY.md
 ./gradlew lintDebug                   # must stay at 0 errors
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell settings put secure enabled_accessibility_services io.github.agussuroyo.glide/dev.glide.GlideService
+adb shell settings put secure enabled_accessibility_services io.github.agussuroyo.glide.debug/dev.glide.GlideService
 adb forward tcp:24242 tcp:24242       # then: glide 127.0.0.1:24242 to drive the emulator
 adb logcat -s GlideCursor
 ```

@@ -36,6 +36,10 @@ android {
     }
 
     buildTypes {
+        // Own app ID so a sideloaded debug build sits next to the Play build.
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             signingConfig = signingConfigs.getByName("release").takeIf { releaseProps.isNotEmpty() }
         }
