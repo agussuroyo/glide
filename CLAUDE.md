@@ -17,6 +17,7 @@ Desktop (run in `desktop/`):
 
 ```
 cargo build --release                 # target/release/glide
+./macos/build-app.sh                  # dist/Glide.app + dist/Glide.dmg (ad-hoc signed menu bar app)
 cargo test                            # unit tests
 cargo test crossing_follows           # single test by name
 GLIDE_E2E_ADDR=127.0.0.1:24242 GLIDE_E2E_FILES=/path/a,/path/dir \
@@ -52,6 +53,7 @@ There are no Android unit tests; Android behaviour is verified on the `bro-test`
 - Events Glide posts itself carry `OWN_EVENT` in `EVENT_SOURCE_USER_DATA` so the tap passes them through. File drag-across uses this: it posts Esc to cancel the Mac drag, then pushes on mouse-up.
 - `net.rs` splits the rustls connection: the reader thread and writer thread share `Mutex<ClientConnection>` over cloned `TcpStream`s.
 - `clip.rs` uses NSPasteboard via objc2, both the general and the drag pasteboard.
+- One binary, two modes. Inside `Glide.app` (`app::in_bundle()`), `app.rs` runs an NSApplication menu bar item. A single main-thread NSTimer does all UI work: status text, the pairing NSAlert, Open at Login state, and retrying the event tap until permissions are granted. Network threads only write to a mutex. From a terminal, `mac::run` just runs the CFRunLoop and pairing asks on stdin.
 
 **Android target** (everything hangs off `GlideService`, an AccessibilityService):
 - Network messages are merged in an inbox (consecutive Move/Scroll summed) and drained on the main thread.

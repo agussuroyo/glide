@@ -1,3 +1,4 @@
+mod app;
 mod clip;
 mod files;
 mod mac;
@@ -32,8 +33,10 @@ fn main() {
     thread::spawn(move || {
         let mut last_err = String::new();
         loop {
+            app::set_status("Looking for your phone on this WiFi…");
             let result = net::find_target(want.as_deref()).and_then(|addr| net::session(&net_host, &id, addr));
             if let Err(e) = result {
+                app::set_status(e.to_string());
                 // Retrying every 2s; only print when the reason changes.
                 if e.to_string() != last_err {
                     eprintln!("{e}. Retrying…");
@@ -48,6 +51,9 @@ fn main() {
         }
     });
 
+    if app::in_bundle() {
+        app::run(host);
+    }
     if let Err(e) = mac::run(host) {
         eprintln!("{e}");
         std::process::exit(1);

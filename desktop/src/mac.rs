@@ -303,8 +303,9 @@ unsafe extern "C" {
     fn CGSSetConnectionProperty(cid: i32, target: i32, key: CFStringRef, value: *const c_void) -> i32;
 }
 
-/// Installs the event tap and runs the main run loop forever.
-pub fn run(host: Shared) -> Result<(), String> {
+/// Installs the event tap on the current (main) run loop. Fails until the user grants Accessibility and
+/// Input Monitoring. The tap lives as long as the returned value.
+pub fn install_tap(host: &Shared) -> Result<CGEventTap<'static>, String> {
     // A background process cannot hide the cursor unless it opts in (private API; Barrier/Deskflow do the same).
     unsafe {
         let cid = CGSMainConnectionID();
@@ -331,17 +332,29 @@ pub fn run(host: Shared) -> Result<(), String> {
             cb_host.lock().unwrap().on_event(etype, e)
         },
     )
-    .map_err(|_| {
-        "cannot create event tap. Grant Accessibility and Input Monitoring to this binary (or your terminal) in \
-         System Settings > Privacy & Security, then run again."
-            .to_string()
-    })?;
+    .map_err(|_| "no permission for the event tap".to_string())?;
     TAP_PORT.store(tap.mach_port().as_concrete_TypeRef() as *mut c_void, Ordering::Relaxed);
     let source = tap.mach_port().create_runloop_source(0).map_err(|_| "runloop source")?;
     CFRunLoop::get_current().add_source(&source, unsafe { kCFRunLoopCommonModes });
     tap.enable();
+    Ok(tap)
+}
+
+/// Terminal mode: install the tap and run the main run loop forever.
+pub fn run(host: Shared) -> Result<(), String> {
+    let _tap = install_tap(&host).map_err(|_| {
+        "cannot create event tap. Grant Accessibility and Input Monitoring to your terminal in \
+         System Settings > Privacy & Security, then run again."
+            .to_string()
+    })?;
     CFRunLoop::run_current();
     Ok(())
+}
+
+/// Name of the connected phone, if any (for the menu bar).
+pub fn phone_name(host: &Shared) -> Option<(String, bool)> {
+    let h = host.lock().unwrap();
+    h.link.as_ref().map(|l| (l.name.clone(), h.remote))
 }
 
 /// macOS virtual keycode → USB HID usage (ANSI layout). Keypad and media keys are not mapped yet.

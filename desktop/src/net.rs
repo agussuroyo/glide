@@ -8,7 +8,7 @@ use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvi
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{ClientConfig, ClientConnection, DigitallySignedStruct, SignatureScheme, StreamOwned};
 use sha2::{Digest, Sha256};
-use std::io::{self, BufRead, Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -164,13 +164,6 @@ fn tls_config(id: &Identity) -> io::Result<Arc<ClientConfig>> {
     Ok(Arc::new(cfg))
 }
 
-fn ask(question: &str) -> bool {
-    print!("{question} [y/N] ");
-    let _ = io::stdout().flush();
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line).is_ok() && line.trim().eq_ignore_ascii_case("y")
-}
-
 /// Where a paired phone is, and who we are to it. Enough to open more connections for file transfers.
 #[derive(Clone)]
 pub struct Link {
@@ -212,8 +205,8 @@ pub fn session(host: &mac::Shared, id: &Arc<Identity>, addr: SocketAddr) -> io::
     let fp = fingerprint(&target_cert);
     let paired = known().iter().any(|(f, _)| f == &fp);
     if !paired {
-        println!("\nNew phone at {addr}. Pairing code: {}", sas(&id.cert, &target_cert));
-        if !ask("Does the phone show the same code?") {
+        println!("\nNew phone at {addr}.");
+        if !crate::app::confirm_pairing(&sas(&id.cert, &target_cert)) {
             return Err(io::Error::other("pairing declined"));
         }
         println!("Now tap Pair on the phone.");

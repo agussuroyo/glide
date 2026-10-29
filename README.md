@@ -7,15 +7,14 @@ Move your Mac's cursor and keyboard onto an Android phone by pushing the cursor 
 **Phone** (Android 13 or newer): install `glide.apk`, open Glide, tap **Open Accessibility settings** and turn Glide on.
 If the switch is greyed out: App info → ⋮ → **Allow restricted settings**, then try again.
 
-**Mac**: put `glide` somewhere on your PATH and run it with the phone on the same WiFi:
+**Mac** (macOS 13 or newer): open `Glide.dmg`, drag Glide into Applications and open it. It lives in the menu bar.
+Glide is not notarized, so the first time macOS blocks it: System Settings → Privacy & Security → **Open Anyway**.
+Then turn Glide on in **Accessibility** and **Input Monitoring** when asked; it starts working as soon as you do, no restart.
+The first time a phone connects, a dialog shows a 6-digit code; tap Pair only if the phone shows the same code, then Pair on the phone.
 
-```
-glide
-```
+Drag the phone in the Glide app to where it sits next to your Mac, like arranging displays in System Settings. The cursor crosses only where the two screens touch, at the same height it left.
 
-It finds the phone by itself (or give it one: `glide pixel`, `glide 192.168.1.20`).
-Then drag the phone in the Glide app to where it sits next to your Mac, like arranging displays in System Settings. The cursor crosses only where the two screens touch, at the same height it left.
-The first time, give Terminal **Accessibility** and **Input Monitoring** in System Settings → Privacy & Security, and compare the 6-digit code shown on both screens.
+The menu bar shows who you're connected to and has **Open at Login**. Prefer a terminal? `glide` (or `glide pixel`, `glide 192.168.1.20`) runs the same thing there.
 
 ## Use
 
@@ -46,6 +45,7 @@ Every connection is TLS 1.3. Devices trust each other only after you compare the
 ## Build
 
 ```
-cd desktop && cargo build --release          # target/release/glide
+cd desktop && cargo build --release          # target/release/glide (terminal)
+cd desktop && ./macos/build-app.sh           # dist/Glide.app and dist/Glide.dmg
 cd android && ./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
 ```
