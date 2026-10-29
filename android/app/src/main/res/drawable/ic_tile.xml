@@ -1,0 +1,10 @@
+<!-- Quick Settings tile: the cursor from the app icon, single colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,3 L6,19 L9.8,15.4 L12.4,21 L14.8,20 L12.2,14.4 L17.4,14.4 Z" />
+</vector>

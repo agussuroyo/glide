@@ -3,7 +3,6 @@ package dev.glide
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ComponentName
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Typeface
@@ -375,11 +374,15 @@ class MainActivity : Activity() {
 
     // ---- helpers ----
 
+    /** Explains exactly what Accessibility is used for and asks for agreement first (Google Play policy). */
     private fun openAccessibility() {
-        // Straight to Glide's switch where the phone supports it, otherwise the Accessibility list.
-        val details = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
-            .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(this, GlideService::class.java).flattenToString())
-        runCatching { startActivity(details) }.onFailure { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        if (Store.accessibilityConsent) return openAccessibilitySettings(this)
+        Disclosure.show(this) { agreed ->
+            if (agreed) {
+                Store.accessibilityConsent = true
+                openAccessibilitySettings(this)
+            }
+        }
     }
 
     private fun wifiAddress(): String? {

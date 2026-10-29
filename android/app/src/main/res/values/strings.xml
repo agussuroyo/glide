@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Glide</string>
-    <string name="accessibility_description">Lets a Mac you have paired move a cursor, tap, scroll and type on this phone over your WiFi. Nothing is shared until you approve a pairing code shown on both screens.</string>
+    <string name="accessibility_description">Lets a Mac you have paired show its cursor on this phone and tap, swipe, scroll and type for you, over your WiFi. Glide does not read your screen and sends nothing to any server; text you copy with Cmd C and files you share go only to your paired Mac.</string>
 </resources>

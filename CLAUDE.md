@@ -29,9 +29,10 @@ Android (run in `android/`):
 
 ```
 ./gradlew assembleDebug               # app/build/outputs/apk/debug/app-debug.apk
+./gradlew bundleRelease               # signed AAB for Play (key in ~/.config/glide/release.properties); see android/PLAY.md
 ./gradlew lintDebug                   # must stay at 0 errors
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell settings put secure enabled_accessibility_services dev.glide/.GlideService
+adb shell settings put secure enabled_accessibility_services io.github.agussuroyo.glide/dev.glide.GlideService
 adb forward tcp:24242 tcp:24242       # then: glide 127.0.0.1:24242 to drive the emulator
 adb logcat -s GlideCursor
 ```
@@ -72,3 +73,5 @@ There are no Android unit tests; Android behaviour is verified on the `bro-test`
 - Fake hosts for testing need TLS 1.3 (system Python's LibreSSL lacks it; use `uv run --python 3.12`) and named-curve EC certs (BoringSSL rejects explicit curve params).
 - Android forbids background clipboard reads: phone→Mac clipboard only works via Cmd+C/X in a text field (selection read from the input connection) or Share.
 - Banking apps may flag any sideloaded accessibility service; don't enable ADB/developer options on the user's own phone.
+- Play Protect blocks installing any APK that declares an Accessibility service from a browser/chat/file manager, so the user installs via Play internal testing. Play policy also requires the in-app disclosure (`Disclosure.kt`) before sending the user to Accessibility settings.
+- App ID is `io.github.agussuroyo.glide`; the Kotlin namespace stays `dev.glide`. Apps cannot open the per-app Accessibility page (system-only permission), so use `accessibilitySettingsIntent`.

@@ -114,6 +114,7 @@ class GlideService : AccessibilityService() {
         Glide.observe(transferCard.observer)
         Glide.update { it.copy(phase = Glide.Phase.WAITING, host = null, arrangement = Store.lastArrangement) }
         Thread(::serve, "glide-server").start()
+        GlideTile.update(this)
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
@@ -139,6 +140,7 @@ class GlideService : AccessibilityService() {
         transferCard.dismiss()
         cursor.remove()
         Glide.update { it.copy(phase = Glide.Phase.OFF, host = null, pairing = null) }
+        GlideTile.update(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}

@@ -92,6 +92,11 @@ object Store {
         get() = prefs.getFloat("pointerSpeed", 1f)
         set(v) = prefs.edit().putFloat("pointerSpeed", v).apply()
 
+    /** The user read and agreed to what Glide does with Accessibility (required before turning it on). */
+    var accessibilityConsent: Boolean
+        get() = prefs.getBoolean("accessibilityConsent", false)
+        set(v) = prefs.edit().putBoolean("accessibilityConsent", v).apply()
+
     var scrollSpeed: Float
         get() = prefs.getFloat("scrollSpeed", 1f)
         set(v) = prefs.edit().putFloat("scrollSpeed", v).apply()

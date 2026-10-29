@@ -4,4 +4,5 @@
     android:accessibilityFlags="flagInputMethodEditor"
     android:canPerformGestures="true"
     android:canRetrieveWindowContent="false"
+    android:isAccessibilityTool="false"
     android:description="@string/accessibility_description" />

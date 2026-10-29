@@ -4,8 +4,8 @@ Move your Mac's cursor and keyboard onto an Android phone by pushing the cursor 
 
 ## Install
 
-**Phone** (Android 13 or newer): install `glide.apk`, open Glide, tap **Open Accessibility settings** and turn Glide on.
-If the switch is greyed out: App info → ⋮ → **Allow restricted settings**, then try again.
+**Phone** (Android 13 or newer): install Glide from Google Play (internal testing for now). Installing the APK from a file is blocked by Play Protect, because Glide uses an Accessibility service. Open Glide, tap **Open Accessibility settings**, read what Glide does, and turn it on.
+A **Glide** tile in Quick Settings turns it off and on again, for example before opening a banking app.
 
 **Mac** (macOS 13 or newer): open `Glide.dmg`, drag Glide into Applications and open it. It lives in the menu bar.
 Glide is not notarized, so the first time macOS blocks it: System Settings → Privacy & Security → **Open Anyway**.
@@ -40,7 +40,7 @@ Every connection is TLS 1.3. Devices trust each other only after pairing: the QR
 - iPhone is not supported: iOS does not let apps control the screen.
 - Android blocks apps from reading the clipboard in the background, so phone → Mac copy works with Cmd C in a text field or Share, not with copies made by finger.
 - Files dropped on the phone are saved to Downloads; Android does not let one app drop files into another.
-- Banking apps may refuse to run while any non-Play-Store accessibility service is on. Turn Glide off in Accessibility before banking.
+- Banking apps may refuse to run while an accessibility service like Glide is on. Turn Glide off with its Quick Settings tile before banking.
 
 ## Build
 
@@ -48,4 +48,10 @@ Every connection is TLS 1.3. Devices trust each other only after pairing: the QR
 cd desktop && cargo build --release          # target/release/glide (terminal)
 cd desktop && ./macos/build-app.sh           # dist/Glide.app and dist/Glide.dmg
 cd android && ./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+cd android && ./gradlew bundleRelease        # signed AAB for Google Play, see android/PLAY.md
+```
+
+Privacy policy: [PRIVACY.md](PRIVACY.md).
+
+```
 ```
