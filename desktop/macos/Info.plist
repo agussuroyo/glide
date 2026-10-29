@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>Glide</string>
     <key>CFBundleIdentifier</key>
-    <string>dev.glide.mac</string>
+    <string>io.github.agussuroyo.glide</string>
     <key>CFBundleExecutable</key>
     <string>glide</string>
     <key>CFBundleIconFile</key>
